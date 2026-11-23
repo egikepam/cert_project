@@ -9,29 +9,34 @@ const EXT = new Set([".js", ".css", ".html", ".json"]); // file types we format
 const PROJECT = path.resolve(process.env.CLAUDE_PROJECT_DIR || process.cwd());
 
 // Decide whether a file should be formatted: right type, inside the project, not in <project>/data/.
+// Symlinks are resolved and names compared in lower case, since Windows paths are case-insensitive.
 function shouldFormat(file) {
   if (!file || !EXT.has(path.extname(file).toLowerCase())) return false;
-  const rel = path.relative(PROJECT, path.resolve(file));
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return false; // outside the project
-  if (rel.split(path.sep)[0] === "data") return false; // personal data folder
-  return fs.existsSync(path.resolve(file));
+  const abs = path.resolve(file);
+  if (!fs.existsSync(abs)) return false;
+  const rel = path.relative(fs.realpathSync(PROJECT), fs.realpathSync(abs)).toLowerCase();
+  if (rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)) return false; // outside the project
+  return rel.split(path.sep)[0] !== "data"; // personal data folder is never formatted
 }
 
 // Find how to start npx without a shell (a shell would interpret characters like & or | in file names).
 // On Windows npx is a .cmd file that cannot be spawned directly, so run npm's npx-cli.js with node.
 function npxCommand() {
   const cli = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npx-cli.js");
-  if (fs.existsSync(cli)) return [process.execPath, [cli]];
-  if (process.platform !== "win32") return ["npx", []];
+  if (fs.existsSync(cli)) return { bin: process.execPath, pre: [cli] };
+  if (process.platform !== "win32") return { bin: "npx", pre: [] };
   return null;
 }
 
-// Run Prettier on one file; report problems on stderr but do not fail.
+// Run Prettier on one file from the project root (so .prettierrc/.prettierignore apply); report problems, never fail.
 function format(file) {
   const cmd = npxCommand();
-  if (!cmd) return console.error("format hook: npx-cli.js not found next to node; skipped");
-  const args = [...cmd[1], "--yes", PRETTIER, "--write", path.resolve(file)];
-  const r = spawnSync(cmd[0], args, { encoding: "utf8", timeout: 60000 });
+  if (!cmd) {
+    console.error("format hook: npx-cli.js not found next to node; skipped");
+    return;
+  }
+  const args = [...cmd.pre, "--yes", PRETTIER, "--write", path.resolve(file)];
+  const r = spawnSync(cmd.bin, args, { cwd: PROJECT, encoding: "utf8", timeout: 60000 });
   if (r.error) console.error("format hook: " + r.error.message);
   else if (r.status !== 0) console.error("format hook: prettier failed\n" + (r.stderr || ""));
 }
