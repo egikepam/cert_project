@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notes & Reminders</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Notes &amp; Reminders</h1>
+    <div class="hbtns">
+      <button id="contactsBtn">👤 Contacts</button>
+      <button id="newBtn" class="primary">+ New reminder</button>
+    </div>
+  </header>
+
+  <div id="filterBar">
+    <label>Person: <select id="filterSel"></select></label>
+  </div>
+  <div id="alerts" aria-live="assertive"></div>
+  <main id="grid"></main>
+  <p id="empty" hidden>No reminders yet. Click “New reminder” to add one.</p>
+
+  <dialog id="dlg">
+    <form id="form" method="dialog">
+      <h2 id="dlgTitle">New reminder</h2>
+
+      <label>Text
+        <textarea id="text" rows="3" required maxlength="500"></textarea>
+      </label>
+
+      <label>Person
+        <select id="contactSel"></select>
+        <button type="button" id="addPersonBtn">+ New person</button>
+      </label>
+
+      <fieldset>
+        <legend>Alarm timing</legend>
+        <label class="inline"><input type="radio" name="type" value="date" checked> Specific date</label>
+        <label class="inline"><input type="radio" name="type" value="relative"> Relative</label>
+        <label class="inline"><input type="radio" name="type" value="repeat"> Repeating</label>
+
+        <div class="opt" data-for="date">
+          <input type="date" id="dateDay">
+          <input type="text" id="dateTime" class="t24" placeholder="HH:MM" maxlength="5" pattern="([01]\d|2[0-3]):[0-5]\d" inputmode="numeric"> (24h)
+        </div>
+
+        <div class="opt" data-for="relative" hidden>
+          In <input type="number" id="relAmount" min="1" value="10">
+          <select id="relUnit">
+            <option value="minutes">minutes</option>
+            <option value="hours">hours</option>
+            <option value="days">days</option>
+          </select>
+        </div>
+
+        <div class="opt" data-for="repeat" hidden>
+          <label class="inline"><input type="radio" name="rmode" value="interval" checked> Every</label>
+          <input type="number" id="repAmount" min="1" value="1">
+          <select id="repUnit">
+            <option value="minutes">minutes</option>
+            <option value="hours">hours</option>
+            <option value="days">days</option>
+            <option value="weeks">weeks</option>
+          </select>
+          <br>
+          <label class="inline"><input type="radio" name="rmode" value="weekdays"> On days</label>
+          <span id="wdays">
+            <label><input type="checkbox" value="1">Mon</label>
+            <label><input type="checkbox" value="2">Tue</label>
+            <label><input type="checkbox" value="3">Wed</label>
+            <label><input type="checkbox" value="4">Thu</label>
+            <label><input type="checkbox" value="5">Fri</label>
+            <label><input type="checkbox" value="6">Sat</label>
+            <label><input type="checkbox" value="0">Sun</label>
+          </span>
+          at <input type="text" id="repTime" class="t24" value="09:00" placeholder="HH:MM" maxlength="5" pattern="([01]\d|2[0-3]):[0-5]\d" inputmode="numeric"> (24h)
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Background colour</legend>
+        <label class="swatch bg-green"><input type="radio" name="color" value="green" checked> Green</label>
+        <label class="swatch bg-yellow"><input type="radio" name="color" value="yellow"> Yellow</label>
+        <label class="swatch bg-red"><input type="radio" name="color" value="red"> Red</label>
+      </fieldset>
+
+      <p id="err" class="err" hidden></p>
+      <div class="actions">
+        <button type="button" id="delBtn" class="danger" hidden>Delete</button>
+        <span class="spacer"></span>
+        <button type="button" id="cancelBtn">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="contactsDlg">
+    <h2>Contacts</h2>
+    <ul id="contactList"></ul>
+    <p id="noContacts" hidden>No contacts yet.</p>
+    <form id="contactForm">
+      <h3 id="cfTitle">Add person</h3>
+      <label>Name <input type="text" id="cName" required maxlength="100"></label>
+      <label>Company / role / notes
+        <textarea id="cInfo" rows="3" maxlength="500"></textarea>
+      </label>
+      <div class="actions">
+        <button type="button" id="cCloseBtn">Close</button>
+        <span class="spacer"></span>
+        <button type="button" id="cResetBtn" hidden>Cancel edit</button>
+        <button type="submit" class="primary" id="cSaveBtn">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

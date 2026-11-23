@@ -1,0 +1,7 @@
+{
+  "name": "notes-reminders",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Notes with reminders; data stored in data/data.json",
+  "scripts": { "start": "node server.js" }
+}
