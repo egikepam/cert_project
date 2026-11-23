@@ -1,3 +1,4 @@
+/* Page layout, header and buttons */
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; color: #1f2937; }
 header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #fff; box-shadow: 0 1px 3px #0002; }
@@ -6,6 +7,7 @@ button { font: inherit; padding: 8px 14px; border: 1px solid #9ca3af; border-rad
 button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
 button.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
 
+/* Reminder cards grid; completed one-off reminders are faded */
 #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 24px; }
 #empty { text-align: center; color: #6b7280; }
 .card { padding: 14px; border-radius: 10px; cursor: pointer; box-shadow: 0 1px 4px #0003; display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
@@ -13,14 +15,17 @@ button.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
 .card .meta { font-size: .8rem; opacity: .8; }
 .card.done { opacity: .5; }
 
+/* Background colours a reminder can use (cards, alarm banners, colour swatches) */
 .bg-green  { background: #bbf7d0; }
 .bg-yellow { background: #fef08a; }
 .bg-red    { background: #fecaca; }
 
+/* Alarm banners floating in the top-right corner */
 #alerts { position: fixed; top: 70px; right: 16px; z-index: 10; display: flex; flex-direction: column; gap: 8px; max-width: 320px; }
 .alert { padding: 12px; border-radius: 8px; box-shadow: 0 2px 8px #0005; display: flex; gap: 8px; align-items: flex-start; border: 2px solid #1f2937; }
 .alert span { flex: 1; white-space: pre-wrap; word-break: break-word; }
 
+/* Modal dialogs and the timing options / colour swatches inside the reminder form */
 dialog { border: none; border-radius: 12px; padding: 20px; width: min(480px, 94vw); box-shadow: 0 8px 32px #0006; }
 dialog::backdrop { background: #0006; }
 dialog h2 { margin-top: 0; }
@@ -34,17 +39,20 @@ input[type=number] { width: 70px; }
 input.t24 { width: 64px; text-align: center; }
 #wdays label { display: inline-block; margin: 0 6px 0 0; }
 .swatch { display: inline-block !important; padding: 6px 12px; border-radius: 6px; margin-right: 8px; border: 1px solid #0003; }
+/* Red banner shown when the server can't be reached; header buttons; person filter and person line on cards */
 .storage-err { background: #dc2626; color: #fff; padding: 10px 24px; font-weight: 600; }
 .storage-err[hidden] { display: none; }
 .hbtns { display: flex; gap: 8px; }
 #filterBar { padding: 12px 24px 0; }
 .card .who { font-size: .9rem; font-weight: 600; }
 .card .who small { font-weight: 400; opacity: .8; }
+/* Contacts dialog: scrolling list and form */
 #contactList { list-style: none; padding: 0; margin: 0 0 12px; max-height: 220px; overflow: auto; }
 #contactList li { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #e5e7eb; }
 #contactList .ci { flex: 1; word-break: break-word; }
 #contactList small { display: block; opacity: .75; }
 #contactForm input[type=text] { width: 100%; font: inherit; padding: 6px; }
+/* Dialog button row and validation error text */
 .actions { display: flex; gap: 8px; }
 .spacer { flex: 1; }
 .err { color: #b91c1c; margin: 0 0 8px; }

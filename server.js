@@ -4,12 +4,14 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const PORT = process.env.PORT || 3000;
-const ROOT = __dirname;
+const PORT = process.env.PORT || 3000;              // listen port (override with PORT env var)
+const ROOT = __dirname;                             // project folder
 const DATA_DIR = path.join(ROOT, "data");
-const DATA_FILE = path.join(DATA_DIR, "data.json");
-const MAX_BODY = 1024 * 1024;
+const DATA_FILE = path.join(DATA_DIR, "data.json"); // where reminders and contacts are stored
+const MAX_BODY = 1024 * 1024;                       // reject uploads larger than 1 MB
 
+// Only these URLs are served as static files (whitelist, so nothing else on disk is reachable).
+// Each maps to [file name, Content-Type].
 const STATIC = {
   "/": ["index.html", "text/html; charset=utf-8"],
   "/index.html": ["index.html", "text/html; charset=utf-8"],
@@ -17,11 +19,13 @@ const STATIC = {
   "/style.css": ["style.css", "text/css; charset=utf-8"],
 };
 
+// Send a response with a status code, body and content type; caching is disabled.
 function send(res, code, body, type = "text/plain; charset=utf-8") {
   res.writeHead(code, { "Content-Type": type, "Cache-Control": "no-store" });
   res.end(body);
 }
 
+// Read data/data.json; returns empty lists if the file is missing or unreadable.
 function readData() {
   try {
     const d = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
@@ -34,10 +38,12 @@ function readData() {
   }
 }
 
+// /api/data endpoint: GET returns the stored data, PUT validates and replaces it.
 function handleApi(req, res) {
   if (req.method === "GET") return send(res, 200, JSON.stringify(readData()), "application/json");
   if (req.method !== "PUT") return send(res, 405, "Method not allowed");
 
+  // PUT: collect the request body, stopping with 413 if it exceeds MAX_BODY.
   let size = 0;
   const chunks = [];
   req.on("data", (c) => {
@@ -47,9 +53,11 @@ function handleApi(req, res) {
   });
   req.on("end", () => {
     if (res.writableEnded) return;
+    // Body complete: parse JSON (400 if invalid) and check it has reminders[] and contacts[].
     let d;
     try { d = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { return send(res, 400, "Invalid JSON"); }
     if (!d || !Array.isArray(d.reminders) || !Array.isArray(d.contacts)) return send(res, 400, "Expected {reminders:[], contacts:[]}");
+    // Atomic save: write to a temp file, then rename over data.json so a crash can't leave a half-written file.
     try {
       fs.mkdirSync(DATA_DIR, { recursive: true });
       const tmp = DATA_FILE + ".tmp";
@@ -63,6 +71,8 @@ function handleApi(req, res) {
   });
 }
 
+// Request router: /api/data -> API; whitelisted GET paths -> static files; anything else -> 404.
+// Listens on 127.0.0.1 only, so it is not reachable from other machines.
 http.createServer((req, res) => {
   const pathname = new URL(req.url, "http://localhost").pathname;
   if (pathname === "/api/data") return handleApi(req, res);

@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Top bar: title, "Contacts" button (opens contacts dialog), "New reminder" button (opens reminder dialog) -->
   <header>
     <h1>Notes &amp; Reminders</h1>
     <div class="hbtns">
@@ -15,13 +16,16 @@
     </div>
   </header>
 
+  <!-- Person filter: shows only one person's reminders (hidden until at least one contact exists) -->
   <div id="filterBar">
     <label>Person: <select id="filterSel"></select></label>
   </div>
+  <!-- Alarm banners appear here when a reminder fires; #grid holds the reminder cards drawn by app.js -->
   <div id="alerts" aria-live="assertive"></div>
   <main id="grid"></main>
   <p id="empty" hidden>No reminders yet. Click “New reminder” to add one.</p>
 
+  <!-- Reminder dialog: create or edit a reminder (text, person, alarm timing, colour) -->
   <dialog id="dlg">
     <form id="form" method="dialog">
       <h2 id="dlgTitle">New reminder</h2>
@@ -41,11 +45,14 @@
         <label class="inline"><input type="radio" name="type" value="relative"> Relative</label>
         <label class="inline"><input type="radio" name="type" value="repeat"> Repeating</label>
 
+        <!-- Only the block matching the selected timing type is visible (see showOpt in app.js) -->
+        <!-- Specific date: day picker + 24h time -->
         <div class="opt" data-for="date">
           <input type="date" id="dateDay">
           <input type="text" id="dateTime" class="t24" placeholder="HH:MM" maxlength="5" pattern="([01]\d|2[0-3]):[0-5]\d" inputmode="numeric"> (24h)
         </div>
 
+        <!-- Relative: fire in N minutes / hours / days from saving -->
         <div class="opt" data-for="relative" hidden>
           In <input type="number" id="relAmount" min="1" value="10">
           <select id="relUnit">
@@ -55,6 +62,7 @@
           </select>
         </div>
 
+        <!-- Repeating: either every N units, or on chosen weekdays at a set 24h time -->
         <div class="opt" data-for="repeat" hidden>
           <label class="inline"><input type="radio" name="rmode" value="interval" checked> Every</label>
           <input type="number" id="repAmount" min="1" value="1">
@@ -86,6 +94,7 @@
         <label class="swatch bg-red"><input type="radio" name="color" value="red"> Red</label>
       </fieldset>
 
+      <!-- Validation message; Delete only shows when editing an existing reminder -->
       <p id="err" class="err" hidden></p>
       <div class="actions">
         <button type="button" id="delBtn" class="danger" hidden>Delete</button>
@@ -96,6 +105,7 @@
     </form>
   </dialog>
 
+  <!-- Contacts dialog: list of people (Edit/Delete) plus a form to add or edit one -->
   <dialog id="contactsDlg">
     <h2>Contacts</h2>
     <ul id="contactList"></ul>

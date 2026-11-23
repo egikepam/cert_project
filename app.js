@@ -1,17 +1,25 @@
 "use strict";
+// Notes & Reminders — browser client.
+// Shows reminder cards, lets the user create/edit/delete them and manage contacts,
+// fires alarms while the page is open, and saves everything to the server (data/data.json).
+
+// Milliseconds per time unit; used to turn "N <unit>" into a timestamp offset.
 const UNIT_MS = { minutes: 60e3, hours: 3600e3, days: 86400e3, weeks: 7 * 86400e3 };
+// Shorthand for document.getElementById.
 const $ = (id) => document.getElementById(id);
 
+// In-memory state (mirrors data/data.json).
 let reminders = [];
 let contacts = [];
-let editingId = null;
-let editingContact = null;
+let editingId = null;       // id of the reminder open in the dialog (null = creating a new one)
+let editingContact = null;  // id of the contact being edited in the contacts form (null = adding)
 
 /* ---------- storage: server file data/data.json via /api/data ---------- */
 let loaded = false;      // never write before a successful load (would wipe the file)
-let saveTimer = null;
-let saving = Promise.resolve();
+let saveTimer = null;    // debounce timer for persist()
+let saving = Promise.resolve(); // chain that serializes writes so they never overlap
 
+// Show (or hide, when msg is empty) the red banner at the top of the page.
 function showStorageError(msg) {
   let b = $("storageErr");
   if (!b) {
@@ -23,6 +31,7 @@ function showStorageError(msg) {
   b.textContent = msg;
   b.hidden = !msg;
 }
+// Load reminders and contacts from the server; on first run, import old localStorage data.
 async function loadAll() {
   const res = await fetch("/api/data", { cache: "no-store" });
   if (!res.ok) throw new Error("HTTP " + res.status);
@@ -44,6 +53,7 @@ async function loadAll() {
   }
   loaded = true;
 }
+// Send the full current state to the server (PUT /api/data). Throws if the server rejects it.
 async function writeNow() {
   const res = await fetch("/api/data", {
     method: "PUT",
@@ -52,6 +62,7 @@ async function writeNow() {
   });
   if (!res.ok) throw new Error("HTTP " + res.status);
 }
+// Schedule a save ~200 ms from now (restarts on every call); shows/clears the error banner on failure/success.
 function persist() {
   if (!loaded) return;
   clearTimeout(saveTimer);
@@ -62,9 +73,12 @@ function persist() {
     );
   }, 200);
 }
+// Call after changing reminders / contacts; both just trigger a save.
 function save() { persist(); }
 function saveContacts() { persist(); }
+// Find the contact linked to a reminder (undefined if none).
 const contactOf = (r) => contacts.find((c) => c.id === r.contactId);
+// Generate a unique id for a new reminder or contact.
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
 
 /* ---------- scheduling ---------- */
@@ -97,6 +111,7 @@ function advance(r, now) {
 }
 
 /* ---------- alarms ---------- */
+// Runs every second: fires every reminder that is due, then reschedules repeats or marks one-offs as done.
 function tick() {
   const now = Date.now();
   let changed = false;
@@ -109,6 +124,7 @@ function tick() {
   }
   if (changed) { save(); render(); }
 }
+// Show the alarm banner (with Dismiss button), beep, and send a browser notification if permitted.
 function fire(r) {
   const box = document.createElement("div");
   box.className = "alert bg-" + r.color;
@@ -125,6 +141,7 @@ function fire(r) {
     new Notification(p ? "Reminder · " + p.name : "Reminder", { body: r.text });
   }
 }
+// Play a short 880 Hz tone (0.3 s).
 function beep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -137,6 +154,7 @@ function beep() {
 }
 
 /* ---------- rendering ---------- */
+// Build the one-line timing text shown on a card (done / repeat rule / next time).
 function describe(r) {
   const s = r.schedule;
   if (r.fired) return "Done (" + fmt(r.nextAt) + ")";
@@ -148,11 +166,14 @@ function describe(r) {
   }
   return "🕒 " + fmt(r.nextAt);
 }
+// Format a timestamp as a short 24-hour date/time ("—" when empty).
 function fmt(ms) {
   return ms == null ? "—" : new Date(ms).toLocaleString("en-GB", { hour12: false, dateStyle: "short", timeStyle: "short" });
 }
+// Valid 24-hour time: HH:MM, 00:00–23:59.
 const T24 = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+// Redraw all reminder cards: pending first (soonest first), done last, honouring the person filter.
 function render() {
   const grid = $("grid");
   grid.replaceChildren();
@@ -182,23 +203,26 @@ function render() {
       c.append(w);
     }
     c.append(m);
-    c.onclick = () => openDialog(r.id);
+    c.onclick = () => openDialog(r.id); // clicking a card opens it for editing
     grid.append(c);
   }
   $("empty").hidden = reminders.length > 0;
 }
 
 /* ---------- contacts ---------- */
+// Fill a <select> with a first placeholder option plus all contacts; keep selectedId if it still exists.
 function fillSelect(sel, first, selectedId) {
   sel.replaceChildren(new Option(first, ""));
   for (const c of contacts) sel.append(new Option(c.name, c.id));
   sel.value = contacts.some((c) => c.id === selectedId) ? selectedId : "";
 }
+// Refresh the person dropdown in the reminder dialog and the filter bar (hidden when there are no contacts).
 function refreshContactSelects(pickId) {
   fillSelect($("contactSel"), "— no person —", pickId ?? $("contactSel").value);
   fillSelect($("filterSel"), "All people", $("filterSel").value);
   $("filterBar").hidden = contacts.length === 0;
 }
+// Put the contacts form back into "Add person" mode.
 function resetContactForm() {
   editingContact = null;
   $("contactForm").reset();
@@ -206,6 +230,7 @@ function resetContactForm() {
   $("cSaveBtn").textContent = "Add";
   $("cResetBtn").hidden = true;
 }
+// Redraw the contacts list with Edit / Delete buttons for each person.
 function renderContacts() {
   const ul = $("contactList");
   ul.replaceChildren();
@@ -221,6 +246,7 @@ function renderContacts() {
     }
     const eb = document.createElement("button");
     eb.textContent = "Edit";
+    // Edit: load this person into the form below the list.
     eb.onclick = () => {
       editingContact = c.id;
       $("cName").value = c.name;
@@ -232,6 +258,7 @@ function renderContacts() {
     const db = document.createElement("button");
     db.className = "danger";
     db.textContent = "Delete";
+    // Delete: confirm, remove the contact and unlink it from any reminders that used it.
     db.onclick = () => {
       const used = reminders.filter((r) => r.contactId === c.id).length;
       const msg = used ? `Delete ${c.name}? ${used} reminder(s) will lose this person.` : `Delete ${c.name}?`;
@@ -247,11 +274,13 @@ function renderContacts() {
   }
   $("noContacts").hidden = contacts.length > 0;
 }
+// Open the contacts dialog with a clean form and a fresh list.
 function openContacts() {
   resetContactForm();
   renderContacts();
   $("contactsDlg").showModal();
 }
+// Add or update a person; if opened via "+ New person", select them in the reminder dialog afterwards.
 $("contactForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const name = $("cName").value.trim();
@@ -266,24 +295,31 @@ $("contactForm").addEventListener("submit", (e) => {
   refreshContactSelects($("contactsDlg").dataset.pick ? id : undefined);
   render();
 });
+// Header "Contacts" button: open the dialog in plain management mode.
 $("contactsBtn").onclick = () => { delete $("contactsDlg").dataset.pick; openContacts(); };
+// "+ New person" inside the reminder dialog: open contacts and remember to pick the new person.
 $("addPersonBtn").onclick = () => { $("contactsDlg").dataset.pick = "1"; openContacts(); };
 $("cCloseBtn").onclick = () => $("contactsDlg").close();
 $("cResetBtn").onclick = resetContactForm;
+// Changing the person filter just redraws the cards.
 $("filterSel").addEventListener("change", render);
 
 /* ---------- dialog ---------- */
+// Convert a timestamp to local "YYYY-MM-DDTHH:MM" text (for the date + time inputs).
 function toLocalInput(ms) {
   const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
   return d.toISOString().slice(0, 16);
 }
+// Split "YYYY-MM-DDTHH:MM" into the date and time inputs.
 function setDateAt(v) {
   [$("dateDay").value, $("dateTime").value] = v.split("T");
 }
+// Show only the option block that matches the selected timing type.
 function showOpt() {
   const type = document.querySelector('input[name=type]:checked').value;
   document.querySelectorAll(".opt").forEach((o) => (o.hidden = o.dataset.for !== type));
 }
+// Open the reminder dialog: empty form with defaults for a new reminder, or filled in for an existing id.
 function openDialog(id) {
   editingId = id || null;
   const r = reminders.find((x) => x.id === id);
@@ -291,7 +327,7 @@ function openDialog(id) {
   $("delBtn").hidden = !r;
   $("err").hidden = true;
   $("form").reset();
-  setDateAt(toLocalInput(Date.now() + 3600e3));
+  setDateAt(toLocalInput(Date.now() + 3600e3)); // default: one hour from now
   document.querySelectorAll("#wdays input").forEach((c) => (c.checked = false));
   if (r) {
     const s = r.schedule;
@@ -313,6 +349,7 @@ function openDialog(id) {
   showOpt();
   $("dlg").showModal();
 }
+// Read and validate the timing fields; returns a schedule object, or an error message string.
 function readSchedule() {
   const type = document.querySelector("input[name=type]:checked").value;
   if (type === "date") {
@@ -337,6 +374,8 @@ function readSchedule() {
   return { type, mode, days, time: $("repTime").value };
 }
 
+// Save button: validate, then create a new reminder or update the one being edited.
+// The alarm time is recalculated from the schedule and the reminder is re-armed (fired = false).
 $("form").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = $("text").value.trim();
@@ -356,17 +395,22 @@ $("form").addEventListener("submit", (e) => {
   save();
   render();
   $("dlg").close();
+  // Ask for notification permission the first time a reminder is saved.
   if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
 });
 
+// Button handlers: new reminder, cancel the dialog, delete the reminder being edited.
 $("newBtn").onclick = () => openDialog(null);
 $("cancelBtn").onclick = () => $("dlg").close();
 $("delBtn").onclick = () => {
   reminders = reminders.filter((x) => x.id !== editingId);
   save(); render(); $("dlg").close();
 };
+// Switching the timing type (date / relative / repeating) swaps the visible options.
 document.querySelectorAll("input[name=type]").forEach((i) => i.addEventListener("change", showOpt));
 
+// Startup: load saved data, draw the UI and start the 1-second alarm check.
+// If the server can't be reached, show an error and disable editing so saved data isn't overwritten.
 async function init() {
   try {
     await loadAll();
